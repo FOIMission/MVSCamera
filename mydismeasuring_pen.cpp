@@ -1,8 +1,8 @@
 #include "mydismeasuring_pen.h"
-#include "ui_mvscamera.h"
+#include "ui_Mainwindow.h"
 
 Mydismeasuring_pen::Mydismeasuring_pen(QWidget *parent)
-    : MVSCamera(parent)
+    : Mainwindow(parent)
 {
     connect(ui->clear_lines, &QPushButton::clicked, this, &Mydismeasuring_pen::on_clear_lines_clicked);
     connect(ui->dis_measure, &QPushButton::clicked, this, &Mydismeasuring_pen::on_dis_measure_clicked);
@@ -36,8 +36,8 @@ void Mydismeasuring_pen::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton&&canMeasure)
     {
         // 按下鼠标：开始拖拽绘制
-        currentStart = event->pos();
-        currentEnd = event->pos();  // 初始时终点等于起点
+        currentStart = event->pos();;
+        currentEnd = event->pos();;
         isDrawing = true;
         update();  // 触发重绘
     }
@@ -57,19 +57,15 @@ void Mydismeasuring_pen::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton && isDrawing)
     {
-        // 释放鼠标：完成绘制并保存
-        currentEnd = event->pos();
-
-        // 只有当起点和终点不同时才保存（避免零长度线）
+        currentEnd = event->pos();;
         if (currentStart != currentEnd)
         {
             double dist = calculateDistance(currentStart, currentEnd);
             MeasurementLine line(currentStart, currentEnd, dist);
             lines.append(line);
         }
-
-        isDrawing = false;  // 结束绘制
-        update();  // 触发重绘
+        isDrawing = false;
+        update();
     }
 }
 

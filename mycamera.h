@@ -1,7 +1,6 @@
-#ifndef MVSCAMERA_H
-#define MVSCAMERA_H
+﻿#ifndef MYCAMERA_H
+#define MYCAMERA_H
 
-#include <QMainWindow>
 #include "MvCameraControl.h"
 #include <QImage>
 #include <QPixmap>
@@ -15,34 +14,33 @@
 #include <QApplication>
 #include <QPainter>
 #include <QScreen>
-QT_BEGIN_NAMESPACE
-namespace Ui { class MVSCamera; }
-QT_END_NAMESPACE
-
-class MVSCamera : public QMainWindow
+#include <QMutex>
+class myCamera :public QObject
 {
     Q_OBJECT
-
 public:
-    MVSCamera(QWidget *parent = nullptr);
-    ~MVSCamera();
+    explicit myCamera(QObject *parent = nullptr);
+    ~myCamera();
 
     int nRet = MV_OK;
     void * handle=NULL;
-
 protected:
-        Ui::MVSCamera *ui;
+
+signals:
+    void errorSignal(const QString &errorMessage);
+    void ImageReady(const QImage &Image);
+    void Previewing();
 
 private slots:
-    void on_Preview_clicked();
-    void on_Stop_clicked();
-    void on_Capture_clicked();
-
+    void Preview();
+    void Stop();
 
 private:
-    void showImage(QImage showImage);
+    QMutex m_mutex;
+
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
+    void ProcessImage(unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo);
     void Initialize();
-    void initWindow();
 };
-#endif // MVSCAMERA_H
+
+#endif // MYCAMERA_H

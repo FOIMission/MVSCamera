@@ -15,16 +15,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    Mainwindow.cpp \
     main.cpp \
-    mvscamera.cpp \
+    mycamera.cpp \
     mydismeasuring_pen.cpp
 
 HEADERS += \
-    mvscamera.h \
+    Mainwindow.h \
+    mycamera.h \
     mydismeasuring_pen.h
 
 FORMS += \
-    mvscamera.ui
+    Mainwindow.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

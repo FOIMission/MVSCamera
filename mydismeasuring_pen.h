@@ -10,7 +10,7 @@
 #include <QColor>
 #include <cmath>
 #include <QDebug>
-#include "mvscamera.h"
+#include "Mainwindow.h"
 
 struct MeasurementLine {
     QPoint startpoint;
@@ -22,7 +22,7 @@ struct MeasurementLine {
     MeasurementLine() : distance(0) {}
 };
 
-class Mydismeasuring_pen : public MVSCamera
+class Mydismeasuring_pen : public Mainwindow
 {
     Q_OBJECT
 
