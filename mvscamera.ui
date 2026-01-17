@@ -102,7 +102,7 @@
      <string>TextLabel</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="clear_lines">
+   <widget class="QPushButton" name="clear">
     <property name="geometry">
      <rect>
       <x>2020</x>
@@ -120,7 +120,7 @@
      <string>clear lines</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="dis_measure">
+   <widget class="QPushButton" name="measure">
     <property name="geometry">
      <rect>
       <x>2020</x>
@@ -137,26 +137,6 @@
     <property name="text">
      <string>dis_measure</string>
     </property>
-   </widget>
-   <widget class="QWidget" name="drawingWidget" native="true">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>1841</width>
-      <height>1001</height>
-     </rect>
-    </property>
-    <widget class="QGraphicsView" name="graphicsView">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>150</y>
-       <width>651</width>
-       <height>461</height>
-      </rect>
-     </property>
-    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

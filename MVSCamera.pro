@@ -15,13 +15,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    drawworker.cpp \
     main.cpp \
-    mvscamera.cpp \
-    mydismeasuring_pen.cpp
+    mvscamera.cpp
 
 HEADERS += \
-    mvscamera.h \
-    mydismeasuring_pen.h
+    drawworker.h \
+    mvscamera.h
 
 FORMS += \
     mvscamera.ui
