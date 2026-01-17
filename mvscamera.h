@@ -1,4 +1,4 @@
-#ifndef MVSCAMERA_H
+﻿#ifndef MVSCAMERA_H
 #define MVSCAMERA_H
 
 #include <QMainWindow>
@@ -15,6 +15,9 @@
 #include <QApplication>
 #include <QPainter>
 #include <QScreen>
+#include <QFileDialog>
+#include <QFileInfo>
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MVSCamera; }
 QT_END_NAMESPACE
@@ -37,12 +40,17 @@ private slots:
     void on_Preview_clicked();
     void on_Stop_clicked();
     void on_Capture_clicked();
-
+    void on_selectFilePath_clicked();
 
 private:
-    void showImage(QImage showImage);
+
+    QImage myImage;
+    bool isInitial=false;
+    bool isPreviewing=false;
+    bool isPausing=false;
+    void showImage(QImage Image);
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
-    void Initialize();
+    bool Initialize();
     void initWindow();
 };
 #endif // MVSCAMERA_H

@@ -12,6 +12,10 @@ MVSCamera::MVSCamera(QWidget *parent)
 
 MVSCamera::~MVSCamera()
 {
+    if(handle)
+    {
+        on_Stop_clicked();
+    }
     delete ui;
 }
 
@@ -25,28 +29,34 @@ void MVSCamera::initWindow()
         showMaximized();
         //qDebug()<<size().width()<< size().height();
     }
+    ui->Camera->setStyleSheet("background-color: #1e1e1e;");
+    ui->Camera->setAlignment(Qt::AlignCenter);
+    ui->Preview->setText(u8"预览");
+    ui->FileNameEdit->setReadOnly(true);
 }
 
-void MVSCamera::showImage(QImage showImage)
+void MVSCamera::showImage(QImage Image)
 {
-    QPixmap showPixmap = QPixmap::fromImage(showImage).scaled(QSize(2560,1400),Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
+    myImage=Image;
+    QPixmap showPixmap = QPixmap::fromImage(myImage).scaled(QSize(ui->Camera->width(),ui->Camera->height()),Qt::KeepAspectRatio,Qt::SmoothTransformation);
     ui->Camera->setPixmap(showPixmap);
 }
 
 void __stdcall MVSCamera:: ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser)
 {
     MVSCamera* pThis = (MVSCamera*)pUser;
-    QImage showImage = QImage(pData, pFrameInfo->nWidth,pFrameInfo->nHeight,QImage::Format_RGB888);
-    pThis->showImage(showImage);
+    QImage myImageTmp = QImage(pData, pFrameInfo->nWidth,pFrameInfo->nHeight,QImage::Format_RGB888);
+    pThis->showImage(myImageTmp);
 }
 
-void MVSCamera::Initialize()
+bool MVSCamera::Initialize()
 {
     //#1 初始化SDk
     nRet=MV_CC_Initialize();
     if(MV_OK!=nRet)
     {
         qDebug()<<"SDK Initialize fail!";
+        return false;
     }
 
     //#2 枚举设备
@@ -55,6 +65,7 @@ void MVSCamera::Initialize()
     if(MV_OK!=nRet)
     {
         qDebug()<<"Enum Devices fail!";
+        return false;
     }
     if(stDeviceList.nDeviceNum>0)
     {
@@ -75,6 +86,7 @@ void MVSCamera::Initialize()
     else
     {
         qDebug()<<"Find No Devices!";
+        return false;
     }
 
     //#3 创建句柄
@@ -82,6 +94,7 @@ void MVSCamera::Initialize()
     if (MV_OK != nRet)
     {
         qDebug()<<"Create Handle fail!";
+        return false;
     }
 
     //#4 打开设备
@@ -89,6 +102,7 @@ void MVSCamera::Initialize()
     if(MV_OK!=nRet)
     {
         qDebug()<<"Open Device fail!";
+        return false;
     }
 
     //#5 获得网络最佳包大小
@@ -99,11 +113,13 @@ void MVSCamera::Initialize()
         if(nRet != MV_OK)
         {
             qDebug()<<"Warning: Set Packet Size fail!";
+            return false;
         }
     }
     else
     {
         qDebug()<<"Warning: Get Packet Size fail!";
+        return false;
     }
 
     //#6 关闭触发模式
@@ -111,6 +127,7 @@ void MVSCamera::Initialize()
     if (MV_OK != nRet)
     {
         qDebug()<<"Set Trigger Mode off fail!";
+        return false;
     }
 
     //#7 注册回调函数
@@ -118,88 +135,133 @@ void MVSCamera::Initialize()
    if(MV_OK != nRet)
    {
        qDebug()<<"RegisterImageCallBackForRGB fail!";
+       return false;
    }
+   return true;
 }
 
 void MVSCamera::on_Preview_clicked()
 {
-    Initialize();
-    //#1 开始取流
-    nRet = MV_CC_StartGrabbing(handle);
-    if (MV_OK != nRet)
+    if(!isInitial)
     {
-        qDebug()<<"Start Grabbing fail!";
+        if(!Initialize())
+        {
+            qDebug()<<"Init failed!";
+            return;
+        }
+        isInitial = true;
+    }
+    if(!isPreviewing)
+    {
+        //#1 开始取流
+        nRet = MV_CC_StartGrabbing(handle);
+        if (MV_OK != nRet)
+        {
+            qDebug()<<"Start Grabbing fail!";
+            return;
+        }
+        ui->Preview->setText(u8"暂停");
+        isPreviewing=true;
+        isPausing=false;
+    }
+    else
+    {
+        //#1 停止取流
+        nRet = MV_CC_StopGrabbing(handle);
+        if (MV_OK != nRet)
+        {
+            qDebug()<<"Stop Grabbing fail!";
+            return;
+        }
+        ui->Preview->setText(u8"预览");
+        isPreviewing=false;
+        isPausing=true;
     }
 }
 
 void MVSCamera::on_Stop_clicked()
 {
     //#1 停止取流
-    nRet = MV_CC_StopGrabbing(handle);
-    if (MV_OK != nRet)
+    if(isInitial&&isPreviewing)
     {
-        qDebug()<<"Stop Grabbing fail!";
+        nRet = MV_CC_StopGrabbing(handle);
+        if (MV_OK != nRet)
+        {
+            qDebug()<<"Stop Grabbing fail!";
+            return;
+        }
     }
     //#2 关闭设备
     nRet = MV_CC_CloseDevice(handle);
     if (MV_OK != nRet)
     {
         qDebug()<<"Close Device fail!";
+        return;
     }
     //#3 销毁句柄
     nRet = MV_CC_DestroyHandle(handle);
     if (MV_OK != nRet)
     {
         qDebug()<<"Destroy Handle fail!";
+        return;
     }
     //#4 反初始化
     nRet = MV_CC_Finalize();
     if (MV_OK != nRet)
     {
         qDebug()<<"Finalize fail!";
+        return;
     }
     handle = NULL;
+    isInitial=false;
+    isPreviewing=false;
+    isPausing=false;
+    ui->Preview->setText(u8"预览");
+    ui->Camera->clear();
 }
 
 void MVSCamera::on_Capture_clicked()
 {
     //#1 捕获
-    if(ui->Camera->pixmap()==NULL)
+    if(!handle)
     {
         QMessageBox::warning(this,"warning","Cannot save pictures!");
+        return;
     }
-    QString savePathHead = QDir::rootPath()+"QtMVpicture/";
+    QString PathHead;
+    if(ui->FileNameEdit->text().isEmpty())
+    {
+        PathHead= QDir::rootPath()+"QtMVpicture/";
+        if (!QDir().mkpath(PathHead))
+        {
+            QMessageBox::warning(this,"warning","Cannot create "+PathHead);
+            return;
+        }
+    }
+    else
+    {
+        PathHead=ui->FileNameEdit->text()+"/";
+    }
     QString curDate = QDateTime::currentDateTime().toString("yyyyMMdd-hhmmss.zzz");
     QString format="bmp";//文件较大，较小用png
-    QString savePath = savePathHead + curDate + "." + format;
-    const QPixmap * picture_image=ui->Camera->pixmap();
+    QString savePath = PathHead + curDate + "." + format;
+    QPixmap mypixmap = QPixmap::fromImage(myImage);
 
-    QPixmap watermarkedPixmap = *picture_image;
-    // 创建 QPainter 来绘制文字
-    QPainter painter(&watermarkedPixmap);
-    // 设置字体
+    //#2 贴水印
+    QPainter painter(&mypixmap);
     QFont font("Arial", 16, QFont::Bold);
     painter.setFont(font);
-    // 设置文字颜色（白色带黑色边框更清晰）
     painter.setPen(Qt::white);
-    // 设置文字背景（可选，增加可读性）
-    painter.setBrush(QColor(0, 0, 0, 128));  // 半透明黑色背景
-    // 计算文字位置（右下角），绘制背景矩形，内容
+    painter.setBrush(QColor(0, 0, 0, 128));
     int padding = 10;
     QFontMetrics fm(font);
     int textWidth = fm.horizontalAdvance(curDate);
-//    int textHeight = fm.height();
-//    painter.drawRect(watermarkedPixmap.width() - textWidth - padding * 2,
-//                     watermarkedPixmap.height() - textHeight - padding,
-//                     textWidth + padding * 2,
-//                     textHeight + padding);
-    painter.drawText(watermarkedPixmap.width() - textWidth - padding,
-                     watermarkedPixmap.height() - padding,
+    painter.drawText(mypixmap.width() - textWidth - padding,
+                     mypixmap.height() - padding,
                      curDate);
 
     painter.end();
-
-    if(watermarkedPixmap.save(savePath))
+    if(mypixmap.save(savePath))
     {
         QMessageBox msgBox;
         msgBox.setText("save to "+savePath);
@@ -209,6 +271,22 @@ void MVSCamera::on_Capture_clicked()
     {
         QErrorMessage eromsgBox;
         eromsgBox.showMessage("Failed to save picture");
+    }
+}
+
+void MVSCamera::on_selectFilePath_clicked()
+{
+    // 获取单个文件路径
+    QString strFilePath = QFileDialog::getExistingDirectory(
+        this,                  // 父窗口
+        u8"选择文件夹",            // 对话框标题
+        QDir::currentPath(), // 默认路径为当前工作目录
+        QFileDialog::ShowDirsOnly // 只显示目录
+    );
+
+    if (!strFilePath.isEmpty())
+    {
+        ui->FileNameEdit->setText(strFilePath);
     }
 }
 
