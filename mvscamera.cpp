@@ -1,4 +1,4 @@
-#include "mvscamera.h"
+﻿#include "mvscamera.h"
 #include "ui_mvscamera.h"
 
 MVSCamera::MVSCamera(QWidget *parent)
@@ -17,14 +17,11 @@ MVSCamera::~MVSCamera()
 
 void MVSCamera::initWindow()
 {
-    // 获取所有屏幕
+    // 获取所有屏幕(适用于多个屏幕)
     QList<QScreen*> screens = QApplication::screens();
-
     if (screens.size() > 1) {
-        QRect screenGeometry = screens[0]->geometry();  // 第一个屏幕
-        // 移动到目标屏幕
+        QRect screenGeometry = screens[0]->geometry();
         move(screenGeometry.topLeft());
-        // 最大化窗口（保留标题栏和按钮）
         showMaximized();
         //qDebug()<<size().width()<< size().height();
     }
@@ -38,7 +35,6 @@ void MVSCamera::showImage(QImage showImage)
 
 void __stdcall MVSCamera:: ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser)
 {
-//    QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss:zzz");可以放到label
     MVSCamera* pThis = (MVSCamera*)pUser;
     QImage showImage = QImage(pData, pFrameInfo->nWidth,pFrameInfo->nHeight,QImage::Format_RGB888);
     pThis->showImage(showImage);

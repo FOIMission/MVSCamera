@@ -16,12 +16,10 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     main.cpp \
-    mvscamera.cpp \
-    mydismeasuring_pen.cpp
+    mvscamera.cpp
 
 HEADERS += \
-    mvscamera.h \
-    mydismeasuring_pen.h
+    mvscamera.h
 
 FORMS += \
     mvscamera.ui
