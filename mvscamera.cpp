@@ -1,6 +1,7 @@
 ﻿#include "mvscamera.h"
 #include "ui_mvscamera.h"
-
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 MVSCamera::MVSCamera(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MVSCamera)
@@ -8,6 +9,7 @@ MVSCamera::MVSCamera(QWidget *parent)
     ui->setupUi(this);
     this->setWindowTitle("Camera");
     initWindow();
+
 }
 
 MVSCamera::~MVSCamera()
@@ -31,8 +33,25 @@ void MVSCamera::initWindow()
     }
     ui->Camera->setStyleSheet("background-color: #1e1e1e;");
     ui->Camera->setAlignment(Qt::AlignCenter);
-    ui->Preview->setText(u8"预览");
-    ui->FileNameEdit->setReadOnly(true);
+    ui->Camera->setGeometry(0, 0, 1920, 1080);
+    ui->Camera->setMinimumSize(1920, 1080);
+    ui->Camera->setMaximumSize(1920, 1080);
+    ui->Preview->setCheckable(true);
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout;
+    verticalLayout->addWidget(ui->Camera);
+    QHBoxLayout *buttonLayout = new QHBoxLayout;
+    buttonLayout->setSpacing(0);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->addWidget(ui->Preview);
+    buttonLayout->addWidget(ui->Stop);
+    buttonLayout->addWidget(ui->Capture);
+    buttonLayout->addWidget(ui->MarkComboBox);
+    buttonLayout->addWidget(ui->selectFilePath);
+    buttonLayout->addStretch();
+    verticalLayout->addLayout(buttonLayout);
+    verticalLayout->addStretch();
+    centralWidget()->setLayout(verticalLayout);
 }
 
 void MVSCamera::showImage(QImage Image)
@@ -160,7 +179,7 @@ void MVSCamera::on_Preview_clicked()
             qDebug()<<"Start Grabbing fail!";
             return;
         }
-        ui->Preview->setText(u8"暂停");
+        //ui->Preview->setText(u8"暂停");
         isPreviewing=true;
         isPausing=false;
     }
@@ -173,7 +192,7 @@ void MVSCamera::on_Preview_clicked()
             qDebug()<<"Stop Grabbing fail!";
             return;
         }
-        ui->Preview->setText(u8"预览");
+        //ui->Preview->setText(u8"预览");
         isPreviewing=false;
         isPausing=true;
     }
@@ -216,7 +235,8 @@ void MVSCamera::on_Stop_clicked()
     isInitial=false;
     isPreviewing=false;
     isPausing=false;
-    ui->Preview->setText(u8"预览");
+    ui->Preview->setChecked(false);
+    //ui->Preview->setText(u8"预览");
     ui->Camera->clear();
 }
 
@@ -229,7 +249,7 @@ void MVSCamera::on_Capture_clicked()
         return;
     }
     QString PathHead;
-    if(ui->FileNameEdit->text().isEmpty())
+    if(strFilePath.isEmpty())
     {
         PathHead= QDir::rootPath()+"QtMVpicture/";
         if (!QDir().mkpath(PathHead))
@@ -240,7 +260,7 @@ void MVSCamera::on_Capture_clicked()
     }
     else
     {
-        PathHead=ui->FileNameEdit->text()+"/";
+        PathHead=strFilePath+"/";
     }
     QString curDate = QDateTime::currentDateTime().toString("yyyyMMdd-hhmmss.zzz");
     QString format="bmp";//文件较大，较小用png
@@ -256,9 +276,40 @@ void MVSCamera::on_Capture_clicked()
     int padding = 10;
     QFontMetrics fm(font);
     int textWidth = fm.horizontalAdvance(curDate);
-    painter.drawText(mypixmap.width() - textWidth - padding,
-                     mypixmap.height() - padding,
-                     curDate);
+    int textHeight = fm.height();
+
+    int xPos = 0, yPos = 0;
+
+    // 根据下拉框选择的位置绘制
+    switch(ui->MarkComboBox->currentIndex()) {
+        case 0:
+            xPos = padding;
+            yPos = padding + textHeight;
+            break;
+        case 1:
+            xPos = mypixmap.width() - textWidth - padding;
+            yPos = padding + textHeight;
+            break;
+        case 2:
+            xPos = padding;
+            yPos = mypixmap.height() - padding;
+            break;
+        case 3:
+            xPos = mypixmap.width() - textWidth - padding;
+            yPos = mypixmap.height() - padding;
+            break;
+        default:
+            xPos = mypixmap.width() - textWidth - padding;
+            yPos = mypixmap.height() - padding;
+            break;
+    }
+
+    // 绘制水印文字
+    painter.drawText(xPos, yPos, curDate);
+
+//    painter.drawText(mypixmap.width() - textWidth - padding,
+//                     mypixmap.height() - padding,
+//                     curDate);
 
     painter.end();
     if(mypixmap.save(savePath))
@@ -277,16 +328,11 @@ void MVSCamera::on_Capture_clicked()
 void MVSCamera::on_selectFilePath_clicked()
 {
     // 获取单个文件路径
-    QString strFilePath = QFileDialog::getExistingDirectory(
+    strFilePath = QFileDialog::getExistingDirectory(
         this,                  // 父窗口
-        u8"选择文件夹",            // 对话框标题
+        u8"选择要保存的文件夹",            // 对话框标题
         QDir::currentPath(), // 默认路径为当前工作目录
         QFileDialog::ShowDirsOnly // 只显示目录
     );
 
-    if (!strFilePath.isEmpty())
-    {
-        ui->FileNameEdit->setText(strFilePath);
-    }
 }
-

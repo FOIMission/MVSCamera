@@ -31,3 +31,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 INCLUDEPATH += "$$PWD\\MVS\\include"
 LIBS += "$$PWD\\MVS\\lib\\MvCameraControl.lib"
+
+DISTFILES += \
+    Styles/buttons.qss
+
+RESOURCES += \
+    res.qrc

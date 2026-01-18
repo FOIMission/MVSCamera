@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/qss">
+        <file>buttons.qss</file>
+    </qresource>
+    <qresource prefix="/static">
+        <file>icons/preview.png</file>
+        <file>icons/preview_hover.png</file>
+        <file>icons/pause.png</file>
+        <file>icons/pause_hover.png</file>
+        <file>icons/stop.png</file>
+        <file>icons/stop_hover.png</file>
+        <file>icons/capture.png</file>
+        <file>icons/capture_hover.png</file>
+        <file>icons/savepath.png</file>
+        <file>icons/savepath_hover.png</file>
+        <file>icons/mark.png</file>
+        <file>icons/mark_hover.png</file>
+    </qresource>
+</RCC>

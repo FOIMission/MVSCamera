@@ -1,0 +1,132 @@
+﻿QPushButton#Preview {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/preview.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 70px;
+    height: 70px;
+    min-width: 70px;
+    min-height: 70px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#Preview:hover {
+    image: url(":/static/icons/preview_hover.png");
+}
+
+QPushButton#Preview:pressed {
+    image: url(":/static/icons/preview_hover.png");
+}
+
+QPushButton#Preview:checked  {
+    image: url(":/static/icons/pause.png");
+}
+
+QPushButton#Preview:checked:hover  {
+    image: url(":/static/icons/pause_hover.png");
+}
+
+QPushButton#Stop {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/stop.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#Stop:hover {
+    image: url(":/static/icons/stop_hover.png");
+}
+
+QPushButton#Capture {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/capture.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#Capture:hover {
+    image: url(":/static/icons/capture_hover.png");
+}
+
+QPushButton#selectFilePath {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/savepath.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#selectFilePath:hover {
+    image: url(":/static/icons/savepath_hover.png");
+}
+
+QComboBox#MarkComboBox {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/mark.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QComboBox#MarkComboBox:hover {
+    image: url(":/static/icons/mark_hover.png");
+}
+
+QComboBox#MarkComboBox QAbstractItemView {
+    /* 设置下拉框的最小宽度 */
+    min-width: 200px;           /* 设置你想要的宽度 */
+    max-width: 300px;           /* 可选：最大宽度 */
+
+    /* 下拉框外观 */
+    border: 1px solid #3498db;
+    border-radius: 5px;
+    background-color: white;
+    outline: none;              /* 移除焦点边框 */
+
+    /* 下拉框阴影效果 */
+    selection-background-color: #3498db;
+    selection-color: white;
+}

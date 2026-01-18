@@ -43,11 +43,11 @@ private slots:
     void on_selectFilePath_clicked();
 
 private:
-
     QImage myImage;
     bool isInitial=false;
     bool isPreviewing=false;
     bool isPausing=false;
+    QString strFilePath;
     void showImage(QImage Image);
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
     bool Initialize();
