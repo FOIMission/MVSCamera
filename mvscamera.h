@@ -17,7 +17,8 @@
 #include <QScreen>
 #include <QFileDialog>
 #include <QFileInfo>
-
+#include <QTreeWidget>
+#include <QMap>
 QT_BEGIN_NAMESPACE
 namespace Ui { class MVSCamera; }
 QT_END_NAMESPACE
@@ -44,6 +45,10 @@ private slots:
 
 private:
     QImage myImage;
+    QTimer *DeviceMonitorTimer;
+    QTreeWidget *deviceTreeWidget;
+    QMap<QString, MV_CC_DEVICE_INFO*> deviceInfoMap;
+    MV_CC_DEVICE_INFO* deviceInfotmp=nullptr;
     bool isInitial=false;
     bool isPreviewing=false;
     bool isPausing=false;
@@ -51,6 +56,8 @@ private:
     void showImage(QImage Image);
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
     bool Initialize();
-    void initWindow();
+    void InitWindow();
+    void InitSignalsConnect();
+    void checkDevices();
 };
 #endif // MVSCAMERA_H

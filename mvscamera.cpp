@@ -2,14 +2,19 @@
 #include "ui_mvscamera.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGroupBox>
+#include <QListWidget>
+#include <QTreeWidget>
+#include <QHeaderView>
+#include <QTimer>
 MVSCamera::MVSCamera(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MVSCamera)
 {
     ui->setupUi(this);
     this->setWindowTitle("Camera");
-    initWindow();
-
+    InitWindow();
+    InitSignalsConnect();
 }
 
 MVSCamera::~MVSCamera()
@@ -21,17 +26,18 @@ MVSCamera::~MVSCamera()
     delete ui;
 }
 
-void MVSCamera::initWindow()
+void MVSCamera::InitWindow()
 {
     // 获取所有屏幕(适用于多个屏幕)
     QList<QScreen*> screens = QApplication::screens();
-    if (screens.size() > 1) {
+    if (screens.size() >= 1) {
         QRect screenGeometry = screens[0]->geometry();
         move(screenGeometry.topLeft());
         showMaximized();
         //qDebug()<<size().width()<< size().height();
     }
     ui->Camera->setStyleSheet("background-color: #1e1e1e;");
+    ui->Camera->setText("");
     ui->Camera->setAlignment(Qt::AlignCenter);
     ui->Camera->setGeometry(0, 0, 1920, 1080);
     ui->Camera->setMinimumSize(1920, 1080);
@@ -51,7 +57,46 @@ void MVSCamera::initWindow()
     buttonLayout->addStretch();
     verticalLayout->addLayout(buttonLayout);
     verticalLayout->addStretch();
-    centralWidget()->setLayout(verticalLayout);
+
+    QHBoxLayout *centralHboxwidget=new QHBoxLayout;
+    centralHboxwidget->addLayout(verticalLayout);
+    QGroupBox *deviceGroupBox = new QGroupBox(u8"设备列表");
+    QVBoxLayout *deviceLayout = new QVBoxLayout;
+    // 创建设备列表
+    deviceTreeWidget = new QTreeWidget;
+    deviceTreeWidget->setColumnCount(3);
+    deviceTreeWidget->setHeaderLabels({u8"设备名称", u8"IP",u8"选中状态"});
+    deviceTreeWidget->setColumnWidth(0, 150);
+    deviceTreeWidget->setColumnWidth(1, 180);
+    deviceTreeWidget->setColumnWidth(2, 100);
+    //##例子
+    deviceTreeWidget->setFixedWidth(430);
+    deviceTreeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    deviceLayout->addWidget(deviceTreeWidget);
+    deviceGroupBox->setLayout(deviceLayout);
+    QVBoxLayout *deviceGroupLayout = new QVBoxLayout;
+    deviceGroupLayout->addWidget(deviceGroupBox);
+    deviceGroupLayout->addStretch();
+    centralHboxwidget->addLayout(deviceGroupLayout);
+    centralHboxwidget->addStretch();
+    centralWidget()->setLayout(centralHboxwidget);
+
+    QObject::connect(deviceTreeWidget, &QTreeWidget::itemChanged, [this](QTreeWidgetItem *item, int column) {
+        if (column == 2) {  // 只关心第一列（复选框所在列）的变化
+            if (item->checkState(2) == Qt::Checked) {
+                deviceInfotmp=deviceInfoMap[item->text(1)];
+//                qDebug() << deviceInfotmp;
+            }
+        }
+    });
+}
+
+void MVSCamera::InitSignalsConnect()
+{
+    DeviceMonitorTimer=new QTimer;
+    connect(DeviceMonitorTimer,&QTimer::timeout, this, &MVSCamera::checkDevices);
+    DeviceMonitorTimer->start(6000);
 }
 
 void MVSCamera::showImage(QImage Image)
@@ -68,6 +113,69 @@ void __stdcall MVSCamera:: ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INF
     pThis->showImage(myImageTmp);
 }
 
+void MVSCamera::checkDevices()
+{
+    MV_CC_DEVICE_INFO_LIST stDeviceList;
+    nRet = MV_CC_EnumDevices(MV_GIGE_DEVICE, &stDeviceList);
+    if(MV_OK != nRet)
+    {
+        qDebug() << "Enum Devices fail!";
+        return;
+    }
+    QSet<QString> scannedIPs;
+    QMap<QString, QString> scannedDevices;
+
+    if(stDeviceList.nDeviceNum > 0)
+    {
+        for (unsigned int i = 0; i < stDeviceList.nDeviceNum; i++)
+        {
+            MV_CC_DEVICE_INFO* pDeviceInfo = stDeviceList.pDeviceInfo[i];
+            if (!pDeviceInfo) continue;
+
+            int nIp1 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
+            int nIp2 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
+            int nIp3 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
+            int nIp4 = (pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
+
+            QString deviceIP = QString("%1.%2.%3.%4").arg(nIp1).arg(nIp2).arg(nIp3).arg(nIp4);
+            QString deviceName = QString::fromLocal8Bit((char*)pDeviceInfo->SpecialInfo.stGigEInfo.chModelName);
+
+            if (deviceName.isEmpty()) {
+                deviceName = QString("设备%1").arg(i + 1);
+            }
+            scannedIPs.insert(deviceIP);
+            scannedDevices[deviceIP] = deviceName;
+            deviceInfoMap[deviceIP] = stDeviceList.pDeviceInfo[i];
+//            qDebug("[Device %d]: %s - IP: %s", i, deviceName.toStdString().c_str(), deviceIP.toStdString().c_str());
+        }
+    }
+
+    // 删除列表中不存在的设备
+    for (int i = deviceTreeWidget->topLevelItemCount() - 1; i >= 0; i--) {
+        QTreeWidgetItem *item = deviceTreeWidget->topLevelItem(i);
+        QString deviceIP = item->text(1);
+
+        if (!scannedIPs.contains(deviceIP)) {
+            delete item;
+        } else {
+            // 设备仍然存在，从扫描列表中移除，避免重复添加
+            scannedIPs.remove(deviceIP);
+        }
+    }
+    // 添加新发现的设备
+    for (const QString &ip : scannedIPs) {
+        QString deviceName = scannedDevices[ip];
+        QTreeWidgetItem *deviceItem = new QTreeWidgetItem(deviceTreeWidget);
+        deviceItem->setText(0, deviceName);
+        deviceItem->setText(1, ip);
+        deviceItem->setCheckState(2, Qt::Unchecked);
+    }
+    // 如果没有设备
+    if (stDeviceList.nDeviceNum == 0 && deviceTreeWidget->topLevelItemCount() > 0) {
+        deviceTreeWidget->clear();
+    }
+}
+
 bool MVSCamera::Initialize()
 {
     //#1 初始化SDk
@@ -78,38 +186,13 @@ bool MVSCamera::Initialize()
         return false;
     }
 
-    //#2 枚举设备
-    MV_CC_DEVICE_INFO_LIST stDeviceList;
-    nRet=MV_CC_EnumDevices(MV_GIGE_DEVICE,&stDeviceList);
-    if(MV_OK!=nRet)
+    if(deviceInfotmp==nullptr)
     {
-        qDebug()<<"Enum Devices fail!";
+        qDebug()<<u8"未选中设备";
         return false;
     }
-    if(stDeviceList.nDeviceNum>0)
-    {
-        for (unsigned int i=0;i<stDeviceList.nDeviceNum;i++)
-        {
-            MV_CC_DEVICE_INFO* pDeviceInfo = stDeviceList.pDeviceInfo[i];
-            int nIp1 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
-            int nIp2 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
-            int nIp3 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
-            int nIp4 = (pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
-            qDebug("[Device %d]:CurrentIp: %d.%d.%d.%d",i,nIp1,nIp2,nIp3,nIp4);
-            if (NULL == pDeviceInfo)
-            {
-                break;
-            }
-        }
-    }
-    else
-    {
-        qDebug()<<"Find No Devices!";
-        return false;
-    }
-
     //#3 创建句柄
-    nRet=MV_CC_CreateHandle(&handle,stDeviceList.pDeviceInfo[0]);
+    nRet=MV_CC_CreateHandle(&handle,deviceInfotmp);
     if (MV_OK != nRet)
     {
         qDebug()<<"Create Handle fail!";
@@ -334,5 +417,4 @@ void MVSCamera::on_selectFilePath_clicked()
         QDir::currentPath(), // 默认路径为当前工作目录
         QFileDialog::ShowDirsOnly // 只显示目录
     );
-
 }
