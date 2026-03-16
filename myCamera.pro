@@ -19,6 +19,7 @@ SOURCES += \
     mvscamera.cpp
 
 HEADERS += \
+    DeviceMonitorWorker.h \
     mvscamera.h
 
 FORMS += \

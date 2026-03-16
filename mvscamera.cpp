@@ -7,6 +7,7 @@
 #include <QTreeWidget>
 #include <QHeaderView>
 #include <QTimer>
+#include "DeviceMonitorWorker.h"
 MVSCamera::MVSCamera(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MVSCamera)
@@ -23,6 +24,10 @@ MVSCamera::~MVSCamera()
     {
         on_Stop_clicked();
     }
+    if (workerThread && workerThread->isRunning()) {
+           workerThread->quit();
+           workerThread->wait();
+       }
     delete ui;
 }
 
@@ -58,24 +63,24 @@ void MVSCamera::InitWindow()
     verticalLayout->addLayout(buttonLayout);
     verticalLayout->addStretch();
 
-    QHBoxLayout *centralHboxwidget=new QHBoxLayout;
-    centralHboxwidget->addLayout(verticalLayout);
+    QHBoxLayout *centralHboxwidget=new QHBoxLayout;//我把整个ui以横着的方式排列，目前分为两部分
+    centralHboxwidget->addLayout(verticalLayout);//这是这个横排列的第一个layout，是一个占满左半部分的竖排列
+
     QGroupBox *deviceGroupBox = new QGroupBox(u8"设备列表");
     QVBoxLayout *deviceLayout = new QVBoxLayout;
     // 创建设备列表
     deviceTreeWidget = new QTreeWidget;
     deviceTreeWidget->setColumnCount(3);
-    deviceTreeWidget->setHeaderLabels({u8"设备名称", u8"IP",u8"选中状态"});
+    deviceTreeWidget->setHeaderLabels({u8"设备名称", u8"IP", u8"选中状态"});
     deviceTreeWidget->setColumnWidth(0, 150);
     deviceTreeWidget->setColumnWidth(1, 180);
     deviceTreeWidget->setColumnWidth(2, 100);
-    //##例子
-    deviceTreeWidget->setFixedWidth(430);
+    deviceTreeWidget->setFixedWidth(430);//waring:存在无法自适应的问题
     deviceTreeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     deviceLayout->addWidget(deviceTreeWidget);
     deviceGroupBox->setLayout(deviceLayout);
-    QVBoxLayout *deviceGroupLayout = new QVBoxLayout;
+    QVBoxLayout *deviceGroupLayout = new QVBoxLayout;//这是这个横排列的第二个layout，是一个占满右半部分的竖排列
     deviceGroupLayout->addWidget(deviceGroupBox);
     deviceGroupLayout->addStretch();
     centralHboxwidget->addLayout(deviceGroupLayout);
@@ -83,20 +88,50 @@ void MVSCamera::InitWindow()
     centralWidget()->setLayout(centralHboxwidget);
 
     QObject::connect(deviceTreeWidget, &QTreeWidget::itemChanged, [this](QTreeWidgetItem *item, int column) {
-        if (column == 2) {  // 只关心第一列（复选框所在列）的变化
+        if (column == 2) {  // 只关心复选框的变化
             if (item->checkState(2) == Qt::Checked) {
-                deviceInfotmp=deviceInfoMap[item->text(1)];
+                deviceInfo=&deviceInfoMaptmp[item->text(1)];
 //                qDebug() << deviceInfotmp;
             }
-        }
+        }//warning：这里只有一个设备，所以应该用for遍历复选框只能选一个
     });
 }
 
 void MVSCamera::InitSignalsConnect()
 {
-    DeviceMonitorTimer=new QTimer;
-    connect(DeviceMonitorTimer,&QTimer::timeout, this, &MVSCamera::checkDevices);
-    DeviceMonitorTimer->start(6000);
+    workerThread = new QThread(this);
+    DeviceMonitorWorker *worker = new DeviceMonitorWorker(); // 无父对象，之后移入线程
+
+    worker->moveToThread(workerThread);
+
+    // 连接工作对象的信号到主线程的UI更新槽
+    connect(worker, &DeviceMonitorWorker::deviceMessage, this, &MVSCamera::updateDeviceList, Qt::QueuedConnection);
+    // 控制线程启动/停止
+    connect(workerThread, &QThread::started, worker, &DeviceMonitorWorker::startMonitoring);
+    connect(workerThread, &QThread::finished, worker, &DeviceMonitorWorker::deleteLater);
+    connect(workerThread, &QThread::finished, workerThread, &QThread::deleteLater);
+
+    // 启动线程
+    workerThread->start();
+}
+
+void MVSCamera::updateDeviceList(const QMap<QString, QString>& scannedDevices, const QSet<QString>& scannedIPs, QMap<QString, MV_CC_DEVICE_INFO> deviceInfoMap)
+{
+    deviceTreeWidget->clear();
+    deviceInfoMaptmp=deviceInfoMap;//info中介
+    // 添加
+    for (const QString &ip : scannedIPs) {
+        QString deviceName = scannedDevices[ip];
+        QTreeWidgetItem *deviceItem = new QTreeWidgetItem(deviceTreeWidget);
+        deviceItem->setText(0, deviceName);
+        deviceItem->setText(1, ip);
+        deviceItem->setCheckState(2, Qt::Unchecked);
+    }
+
+    // 如果没有设备则清空
+    if (scannedIPs.isEmpty() && deviceTreeWidget->topLevelItemCount() > 0) {
+        deviceTreeWidget->clear();
+    }
 }
 
 void MVSCamera::showImage(QImage Image)
@@ -113,69 +148,6 @@ void __stdcall MVSCamera:: ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INF
     pThis->showImage(myImageTmp);
 }
 
-void MVSCamera::checkDevices()
-{
-    MV_CC_DEVICE_INFO_LIST stDeviceList;
-    nRet = MV_CC_EnumDevices(MV_GIGE_DEVICE, &stDeviceList);
-    if(MV_OK != nRet)
-    {
-        qDebug() << "Enum Devices fail!";
-        return;
-    }
-    QSet<QString> scannedIPs;
-    QMap<QString, QString> scannedDevices;
-
-    if(stDeviceList.nDeviceNum > 0)
-    {
-        for (unsigned int i = 0; i < stDeviceList.nDeviceNum; i++)
-        {
-            MV_CC_DEVICE_INFO* pDeviceInfo = stDeviceList.pDeviceInfo[i];
-            if (!pDeviceInfo) continue;
-
-            int nIp1 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
-            int nIp2 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
-            int nIp3 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
-            int nIp4 = (pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
-
-            QString deviceIP = QString("%1.%2.%3.%4").arg(nIp1).arg(nIp2).arg(nIp3).arg(nIp4);
-            QString deviceName = QString::fromLocal8Bit((char*)pDeviceInfo->SpecialInfo.stGigEInfo.chModelName);
-
-            if (deviceName.isEmpty()) {
-                deviceName = QString("设备%1").arg(i + 1);
-            }
-            scannedIPs.insert(deviceIP);
-            scannedDevices[deviceIP] = deviceName;
-            deviceInfoMap[deviceIP] = stDeviceList.pDeviceInfo[i];
-//            qDebug("[Device %d]: %s - IP: %s", i, deviceName.toStdString().c_str(), deviceIP.toStdString().c_str());
-        }
-    }
-
-    // 删除列表中不存在的设备
-    for (int i = deviceTreeWidget->topLevelItemCount() - 1; i >= 0; i--) {
-        QTreeWidgetItem *item = deviceTreeWidget->topLevelItem(i);
-        QString deviceIP = item->text(1);
-
-        if (!scannedIPs.contains(deviceIP)) {
-            delete item;
-        } else {
-            // 设备仍然存在，从扫描列表中移除，避免重复添加
-            scannedIPs.remove(deviceIP);
-        }
-    }
-    // 添加新发现的设备
-    for (const QString &ip : scannedIPs) {
-        QString deviceName = scannedDevices[ip];
-        QTreeWidgetItem *deviceItem = new QTreeWidgetItem(deviceTreeWidget);
-        deviceItem->setText(0, deviceName);
-        deviceItem->setText(1, ip);
-        deviceItem->setCheckState(2, Qt::Unchecked);
-    }
-    // 如果没有设备
-    if (stDeviceList.nDeviceNum == 0 && deviceTreeWidget->topLevelItemCount() > 0) {
-        deviceTreeWidget->clear();
-    }
-}
-
 bool MVSCamera::Initialize()
 {
     //#1 初始化SDk
@@ -186,13 +158,13 @@ bool MVSCamera::Initialize()
         return false;
     }
 
-    if(deviceInfotmp==nullptr)
+    if(deviceInfo==nullptr)
     {
         qDebug()<<u8"未选中设备";
         return false;
     }
     //#3 创建句柄
-    nRet=MV_CC_CreateHandle(&handle,deviceInfotmp);
+    nRet=MV_CC_CreateHandle(&handle,deviceInfo);
     if (MV_OK != nRet)
     {
         qDebug()<<"Create Handle fail!";

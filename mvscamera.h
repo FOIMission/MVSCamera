@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QTreeWidget>
 #include <QMap>
+#include <QThread>
 QT_BEGIN_NAMESPACE
 namespace Ui { class MVSCamera; }
 QT_END_NAMESPACE
@@ -47,17 +48,20 @@ private:
     QImage myImage;
     QTimer *DeviceMonitorTimer;
     QTreeWidget *deviceTreeWidget;
-    QMap<QString, MV_CC_DEVICE_INFO*> deviceInfoMap;
-    MV_CC_DEVICE_INFO* deviceInfotmp=nullptr;
+    QMap<QString, MV_CC_DEVICE_INFO> deviceInfoMaptmp;
+    QThread *workerThread;
+
+    MV_CC_DEVICE_INFO* deviceInfo=nullptr;
     bool isInitial=false;
     bool isPreviewing=false;
     bool isPausing=false;
     QString strFilePath;
+
     void showImage(QImage Image);
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
     bool Initialize();
     void InitWindow();
     void InitSignalsConnect();
-    void checkDevices();
+    void updateDeviceList(const QMap<QString, QString>& scannedDevices, const QSet<QString>& scannedIPs, QMap<QString, MV_CC_DEVICE_INFO> deviceInfoMap);
 };
 #endif // MVSCAMERA_H

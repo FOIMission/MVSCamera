@@ -13,6 +13,9 @@ void loadQss(QWidget* widget, const QString& path) {
 
 int main(int argc, char *argv[])
 {
+    qRegisterMetaType<QMap<QString, MV_CC_DEVICE_INFO>>("QMap<QString,MV_CC_DEVICE_INFO>");
+    qRegisterMetaType<QMap<QString, QString>>("QMap<QString,QString>");
+    qRegisterMetaType<QSet<QString>>("QSet<QString>");
     QApplication a(argc, argv);
     MVSCamera MVSCamera_w;
     loadQss(&MVSCamera_w,":/qss/buttons.qss");
