@@ -41,16 +41,27 @@ void MVSCamera::InitWindow()
         showMaximized();
         //qDebug()<<size().width()<< size().height();
     }
+    /*
     ui->Camera->setStyleSheet("background-color: #1e1e1e;");
     ui->Camera->setText("");
     ui->Camera->setAlignment(Qt::AlignCenter);
     ui->Camera->setGeometry(0, 0, 1920, 1080);
     ui->Camera->setMinimumSize(1920, 1080);
     ui->Camera->setMaximumSize(1920, 1080);
+    ui->Preview->setCheckable(true);*/
+
+    m_drawView = new GraphicsDrawView(this);
+    m_drawView->setObjectName("drawView");  // 可选
+    // 设置视图背景与图像适应等
+    m_drawView->setBackgroundBrush(Qt::black);
+    m_drawView->setAlignment(Qt::AlignCenter);
+    m_drawView->setGeometry(0, 0, 1920, 1080);
+    m_drawView->setMinimumSize(1920, 1080);
+    m_drawView->setMaximumSize(1920, 1080);
     ui->Preview->setCheckable(true);
 
     QVBoxLayout *verticalLayout = new QVBoxLayout;
-    verticalLayout->addWidget(ui->Camera);
+    verticalLayout->addWidget(m_drawView);
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     buttonLayout->setSpacing(0);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
@@ -59,6 +70,8 @@ void MVSCamera::InitWindow()
     buttonLayout->addWidget(ui->Capture);
     buttonLayout->addWidget(ui->MarkComboBox);
     buttonLayout->addWidget(ui->selectFilePath);
+    buttonLayout->addWidget(ui->measure);
+    buttonLayout->addWidget(ui->clearLines);
     buttonLayout->addStretch();
     verticalLayout->addLayout(buttonLayout);
     verticalLayout->addStretch();
@@ -86,14 +99,19 @@ void MVSCamera::InitWindow()
     centralHboxwidget->addLayout(deviceGroupLayout);
     centralHboxwidget->addStretch();
     centralWidget()->setLayout(centralHboxwidget);
+    ui->Camera->hide();
 
     QObject::connect(deviceTreeWidget, &QTreeWidget::itemChanged, [this](QTreeWidgetItem *item, int column) {
         if (column == 2) {  // 只关心复选框的变化
             if (item->checkState(2) == Qt::Checked) {
                 deviceInfo=&deviceInfoMaptmp[item->text(1)];
-//                qDebug() << deviceInfotmp;
+                deviceChooseState=true;
             }
-        }//warning：这里只有一个设备，所以应该用for遍历复选框只能选一个
+            else
+            {
+                deviceChooseState=false;
+            }
+        }//warning：这里只有一个设备，所以应该用for遍历复选框只能选一个，就是得让我选了一个之后ban掉复选框，不能取消，只能切换这种，效率更高一点
     });
 }
 
@@ -111,6 +129,8 @@ void MVSCamera::InitSignalsConnect()
     connect(workerThread, &QThread::finished, worker, &DeviceMonitorWorker::deleteLater);
     connect(workerThread, &QThread::finished, workerThread, &QThread::deleteLater);
 
+    // 将相机线程的图像信号连接到主线程的更新槽
+    connect(this, &MVSCamera::newImageReady, this, &MVSCamera::updateImage, Qt::QueuedConnection);
     // 启动线程
     workerThread->start();
 }
@@ -136,16 +156,25 @@ void MVSCamera::updateDeviceList(const QMap<QString, QString>& scannedDevices, c
 
 void MVSCamera::showImage(QImage Image)
 {
-    myImage=Image;
-    QPixmap showPixmap = QPixmap::fromImage(myImage).scaled(QSize(ui->Camera->width(),ui->Camera->height()),Qt::KeepAspectRatio,Qt::SmoothTransformation);
+    myImage = Image;
+    QPixmap showPixmap = QPixmap::fromImage(myImage).scaled(QSize(ui->Camera->width(), ui->Camera->height()), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->Camera->setPixmap(showPixmap);
 }
 
-void __stdcall MVSCamera:: ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser)
+void __stdcall MVSCamera::ImageCallBack(unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser)
 {
     MVSCamera* pThis = (MVSCamera*)pUser;
-    QImage myImageTmp = QImage(pData, pFrameInfo->nWidth,pFrameInfo->nHeight,QImage::Format_RGB888);
-    pThis->showImage(myImageTmp);
+    QImage myImageTmp = QImage(pData, pFrameInfo->nWidth, pFrameInfo->nHeight, QImage::Format_RGB888);
+    // 发射信号（需要拷贝图像，因为 pData 可能被覆盖）
+    emit pThis->newImageReady(myImageTmp.copy());
+}
+
+void MVSCamera::updateImage(const QImage &image)
+{
+    if (m_drawView) {
+        m_drawView->setImage(image);
+    }
+    // 如果需要保存原始图像供截图使用，可以存储一份：m_lastRawImage = image;
 }
 
 bool MVSCamera::Initialize()
@@ -163,6 +192,7 @@ bool MVSCamera::Initialize()
         qDebug()<<u8"未选中设备";
         return false;
     }
+
     //#3 创建句柄
     nRet=MV_CC_CreateHandle(&handle,deviceInfo);
     if (MV_OK != nRet)
@@ -220,11 +250,23 @@ void MVSCamera::on_Preview_clicked()
     {
         if(!Initialize())
         {
-            qDebug()<<"Init failed!";
-            return;
+            qDebug()<<"Init fail!";
         }
         isInitial = true;
     }
+
+    if(!deviceChooseState)
+    {
+        if(isPausing)
+        {
+            ui->Preview->setChecked(true);
+        }else{
+            ui->Preview->setChecked(false);
+        }
+        QMessageBox::warning(this, "warning", "No device");
+        return;
+    }
+
     if(!isPreviewing)
     {
         //#1 开始取流
@@ -255,6 +297,12 @@ void MVSCamera::on_Preview_clicked()
 
 void MVSCamera::on_Stop_clicked()
 {
+    if(handle==nullptr)
+    {
+        QMessageBox::warning(this, "warning", "No device");
+        return;
+    }
+
     //#1 停止取流
     if(isInitial&&isPreviewing)
     {
@@ -298,11 +346,18 @@ void MVSCamera::on_Stop_clicked()
 void MVSCamera::on_Capture_clicked()
 {
     //#1 捕获
-    if(!handle)
-    {
-        QMessageBox::warning(this,"warning","Cannot save pictures!");
+    if (handle==nullptr) {
+        QMessageBox::warning(this, "warning", "No device");
         return;
     }
+
+    // 获取图像
+    QImage Image = m_drawView->renderToImage();
+    if (Image.isNull()) {
+        QMessageBox::warning(this, "warning", "cannot get Image");
+        return;
+    }
+
     QString PathHead;
     if(strFilePath.isEmpty())
     {
@@ -320,7 +375,7 @@ void MVSCamera::on_Capture_clicked()
     QString curDate = QDateTime::currentDateTime().toString("yyyyMMdd-hhmmss.zzz");
     QString format="bmp";//文件较大，较小用png
     QString savePath = PathHead + curDate + "." + format;
-    QPixmap mypixmap = QPixmap::fromImage(myImage);
+    QPixmap mypixmap = QPixmap::fromImage(Image);
 
     //#2 贴水印
     QPainter painter(&mypixmap);
@@ -385,8 +440,27 @@ void MVSCamera::on_selectFilePath_clicked()
     // 获取单个文件路径
     strFilePath = QFileDialog::getExistingDirectory(
         this,                  // 父窗口
-        u8"选择要保存的文件夹",            // 对话框标题
+        u8"保存路径",            // 对话框标题
         QDir::currentPath(), // 默认路径为当前工作目录
         QFileDialog::ShowDirsOnly // 只显示目录
     );
+}
+
+void MVSCamera::on_measure_clicked()
+{
+    static bool measuring = false;  // 可以用成员变量代替
+    measuring = !measuring;
+    if (m_drawView)
+    {
+        m_drawView->setMeasuring(measuring);
+    }
+    ui->measure->setText(measuring ? u8"停止测量" : u8"开始测量");
+}
+
+void MVSCamera::on_clearLines_clicked()
+{
+    if (m_drawView)
+    {
+            m_drawView->clearLines();
+    }
 }

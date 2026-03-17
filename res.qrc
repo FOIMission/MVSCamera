@@ -15,5 +15,9 @@
         <file>icons/savepath_hover.png</file>
         <file>icons/mark.png</file>
         <file>icons/mark_hover.png</file>
+        <file>icons/measure.png</file>
+        <file>icons/measure_hover.png</file>
+        <file>icons/clearLines.png</file>
+        <file>icons/clearLines_hover.png</file>
     </qresource>
 </RCC>

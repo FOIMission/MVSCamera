@@ -130,3 +130,45 @@ QComboBox#MarkComboBox QAbstractItemView {
     selection-background-color: #3498db;
     selection-color: white;
 }
+
+QPushButton#measure {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/measure.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#measure:hover {
+    image: url(":/static/icons/measure_hover.png");
+}
+
+QPushButton#clearLines {
+    /* image属性会自动保持图片比例 */
+    image: url(":/static/icons/clearLines.png");
+
+    /* 设置按钮大小与图片匹配 */
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+
+    /* 完全透明背景 */
+    background-color: transparent;
+    border: none;
+    color: transparent;  /* 隐藏文字 */
+    padding: 0px;
+}
+
+QPushButton#clearLines:hover {
+    image: url(":/static/icons/clearLines_hover.png");
+}

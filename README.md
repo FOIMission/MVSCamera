@@ -7,3 +7,5 @@ v1.2 add central layout for myCamera's ui and add qss for my navigation
 v1.3 add devices lists(auto), but have some bugs...tomorrow I will fix up...
 
 v1.4 fix up the bugs about the function of devices list, there are some adaptive bug in UI
+
+v1.5 some bugs in logic

@@ -20,6 +20,7 @@
 #include <QTreeWidget>
 #include <QMap>
 #include <QThread>
+#include "graphicsdrawview.h"
 QT_BEGIN_NAMESPACE
 namespace Ui { class MVSCamera; }
 QT_END_NAMESPACE
@@ -33,8 +34,8 @@ public:
     ~MVSCamera();
 
     int nRet = MV_OK;
-    void * handle=NULL;
-
+    void * handle=nullptr;
+    bool deviceChooseState=false;
 protected:
         Ui::MVSCamera *ui;
 
@@ -43,6 +44,13 @@ private slots:
     void on_Stop_clicked();
     void on_Capture_clicked();
     void on_selectFilePath_clicked();
+
+    void on_measure_clicked();
+
+    void on_clearLines_clicked();
+    void updateImage(const QImage &image);
+signals:
+    void newImageReady(const QImage &image);  // 相机线程发射此信号
 
 private:
     QImage myImage;
@@ -63,5 +71,7 @@ private:
     void InitWindow();
     void InitSignalsConnect();
     void updateDeviceList(const QMap<QString, QString>& scannedDevices, const QSet<QString>& scannedIPs, QMap<QString, MV_CC_DEVICE_INFO> deviceInfoMap);
+
+    GraphicsDrawView *m_drawView;
 };
 #endif // MVSCAMERA_H

@@ -157,6 +157,44 @@
      </property>
     </item>
    </widget>
+   <widget class="QPushButton" name="measure">
+    <property name="geometry">
+     <rect>
+      <x>1380</x>
+      <y>320</y>
+      <width>91</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>楷体</family>
+      <pointsize>15</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>开始测量</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="clearLines">
+    <property name="geometry">
+     <rect>
+      <x>1380</x>
+      <y>360</y>
+      <width>91</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>楷体</family>
+      <pointsize>15</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>清除</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
