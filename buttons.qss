@@ -31,27 +31,6 @@ QPushButton#Preview:checked:hover  {
     image: url(":/static/icons/pause_hover.png");
 }
 
-QPushButton#Stop {
-    /* image属性会自动保持图片比例 */
-    image: url(":/static/icons/stop.png");
-
-    /* 设置按钮大小与图片匹配 */
-    width: 60px;
-    height: 60px;
-    min-width: 60px;
-    min-height: 60px;
-
-    /* 完全透明背景 */
-    background-color: transparent;
-    border: none;
-    color: transparent;  /* 隐藏文字 */
-    padding: 0px;
-}
-
-QPushButton#Stop:hover {
-    image: url(":/static/icons/stop_hover.png");
-}
-
 QPushButton#Capture {
     /* image属性会自动保持图片比例 */
     image: url(":/static/icons/capture.png");

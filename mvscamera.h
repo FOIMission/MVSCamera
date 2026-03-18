@@ -35,13 +35,11 @@ public:
 
     int nRet = MV_OK;
     void * handle=nullptr;
-    bool deviceChooseState=false;
 protected:
         Ui::MVSCamera *ui;
 
 private slots:
     void on_Preview_clicked();
-    void on_Stop_clicked();
     void on_Capture_clicked();
     void on_selectFilePath_clicked();
 
@@ -49,8 +47,13 @@ private slots:
 
     void on_clearLines_clicked();
     void updateImage(const QImage &image);
+
+    void onInitializeFinished(bool success, QTreeWidgetItem* item);
+    void onFinalizeFinished(bool success, QTreeWidgetItem* item);
 signals:
-    void newImageReady(const QImage &image);  // 相机线程发射此信号
+    void newImageReady(const QImage &image);  // 相机线程图片信号
+    void initializeFinished(bool success, QTreeWidgetItem* item);//异步初始化线程结束信号
+    void finalizeFinished(bool success, QTreeWidgetItem* item);//异步反初始化线程结束信号
 
 private:
     QImage myImage;
@@ -68,6 +71,7 @@ private:
     void showImage(QImage Image);
     static void __stdcall ImageCallBack (unsigned char *pData, MV_FRAME_OUT_INFO_EX *pFrameInfo, void *pUser);
     bool Initialize();
+    bool Finalize();
     void InitWindow();
     void InitSignalsConnect();
     void updateDeviceList(const QMap<QString, QString>& scannedDevices, const QSet<QString>& scannedIPs, QMap<QString, MV_CC_DEVICE_INFO> deviceInfoMap);

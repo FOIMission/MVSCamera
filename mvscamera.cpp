@@ -7,6 +7,7 @@
 #include <QTreeWidget>
 #include <QHeaderView>
 #include <QTimer>
+#include <QtConcurrent/QtConcurrentRun>
 #include "DeviceMonitorWorker.h"
 MVSCamera::MVSCamera(QWidget *parent)
     : QMainWindow(parent)
@@ -22,7 +23,7 @@ MVSCamera::~MVSCamera()
 {
     if(handle)
     {
-        on_Stop_clicked();
+        Finalize();
     }
     if (workerThread && workerThread->isRunning()) {
            workerThread->quit();
@@ -41,14 +42,6 @@ void MVSCamera::InitWindow()
         showMaximized();
         //qDebug()<<size().width()<< size().height();
     }
-    /*
-    ui->Camera->setStyleSheet("background-color: #1e1e1e;");
-    ui->Camera->setText("");
-    ui->Camera->setAlignment(Qt::AlignCenter);
-    ui->Camera->setGeometry(0, 0, 1920, 1080);
-    ui->Camera->setMinimumSize(1920, 1080);
-    ui->Camera->setMaximumSize(1920, 1080);
-    ui->Preview->setCheckable(true);*/
 
     m_drawView = new GraphicsDrawView(this);
     m_drawView->setObjectName("drawView");  // 可选
@@ -66,7 +59,6 @@ void MVSCamera::InitWindow()
     buttonLayout->setSpacing(0);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->addWidget(ui->Preview);
-    buttonLayout->addWidget(ui->Stop);
     buttonLayout->addWidget(ui->Capture);
     buttonLayout->addWidget(ui->MarkComboBox);
     buttonLayout->addWidget(ui->selectFilePath);
@@ -101,24 +93,42 @@ void MVSCamera::InitWindow()
     centralWidget()->setLayout(centralHboxwidget);
     ui->Camera->hide();
 
-    QObject::connect(deviceTreeWidget, &QTreeWidget::itemChanged, [this](QTreeWidgetItem *item, int column) {
-        if (column == 2) {  // 只关心复选框的变化
+    connect(this, &MVSCamera::initializeFinished, this, &MVSCamera::onInitializeFinished, Qt::QueuedConnection);
+    connect(this, &MVSCamera::finalizeFinished, this, &MVSCamera::onFinalizeFinished, Qt::QueuedConnection);
+
+    QObject::connect(deviceTreeWidget, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem *item, int column) {
+            if (column != 2) return;
             if (item->checkState(2) == Qt::Checked) {
-                deviceInfo=&deviceInfoMaptmp[item->text(1)];
-                deviceChooseState=true;
+                deviceInfo = &deviceInfoMaptmp[item->text(1)];
+                if (!isInitial) {
+                    // 临时禁用该复选框，防止在异步操作期间被再次点击
+                    item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
+                    isInitial = true;
+                    // 异步执行 Initialize
+                    QtConcurrent::run([this, item]() {
+                        bool ok = Initialize();
+                        emit initializeFinished(ok, item);
+                    });
+                }
+            } else {
+                if (isInitial) {
+                    // 临时禁用该复选框
+                    item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
+                    isInitial = false;
+                    // 异步执行 Finalize
+                    QtConcurrent::run([this, item]() {
+                        bool ok = Finalize();
+                        emit finalizeFinished(ok, item);
+                    });
+                }
             }
-            else
-            {
-                deviceChooseState=false;
-            }
-        }//warning：这里只有一个设备，所以应该用for遍历复选框只能选一个，就是得让我选了一个之后ban掉复选框，不能取消，只能切换这种，效率更高一点
-    });
+        });
 }
 
 void MVSCamera::InitSignalsConnect()
 {
     workerThread = new QThread(this);
-    DeviceMonitorWorker *worker = new DeviceMonitorWorker(); // 无父对象，之后移入线程
+    DeviceMonitorWorker *worker = new DeviceMonitorWorker();
 
     worker->moveToThread(workerThread);
 
@@ -165,7 +175,6 @@ void __stdcall MVSCamera::ImageCallBack(unsigned char *pData, MV_FRAME_OUT_INFO_
 {
     MVSCamera* pThis = (MVSCamera*)pUser;
     QImage myImageTmp = QImage(pData, pFrameInfo->nWidth, pFrameInfo->nHeight, QImage::Format_RGB888);
-    // 发射信号（需要拷贝图像，因为 pData 可能被覆盖）
     emit pThis->newImageReady(myImageTmp.copy());
 }
 
@@ -174,7 +183,6 @@ void MVSCamera::updateImage(const QImage &image)
     if (m_drawView) {
         m_drawView->setImage(image);
     }
-    // 如果需要保存原始图像供截图使用，可以存储一份：m_lastRawImage = image;
 }
 
 bool MVSCamera::Initialize()
@@ -244,29 +252,73 @@ bool MVSCamera::Initialize()
    return true;
 }
 
+bool MVSCamera::Finalize()
+{
+    //#1 停止取流
+    if(isInitial&&isPreviewing)
+    {
+        nRet = MV_CC_StopGrabbing(handle);
+        if (MV_OK != nRet)
+        {
+            qDebug()<<"Stop Grabbing fail!";
+            return false;
+        }
+    }
+    //#2 关闭设备
+    nRet = MV_CC_CloseDevice(handle);
+    if (MV_OK != nRet)
+    {
+        qDebug()<<"Close Device fail!";
+        return false;
+    }
+    //#3 销毁句柄
+    nRet = MV_CC_DestroyHandle(handle);
+    if (MV_OK != nRet)
+    {
+        qDebug()<<"Destroy Handle fail!";
+        return false;
+    }
+    //#4 反初始化
+    nRet = MV_CC_Finalize();
+    if (MV_OK != nRet)
+    {
+        qDebug()<<"Finalize fail!";
+        return false;
+    }
+    handle = NULL;
+    isPreviewing=false;
+    isPausing=false;
+    ui->Preview->setChecked(false);
+    return true;
+}
+
+void MVSCamera::onInitializeFinished(bool success, QTreeWidgetItem* item)
+{
+    if (!success) {
+            QMessageBox::warning(this, "warning", "Device initialization failed");
+        }
+    if (item) {
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+    }
+}
+
+void MVSCamera::onFinalizeFinished(bool success, QTreeWidgetItem* item)
+{
+    if (!success) {
+            QMessageBox::warning(this, "warning", "Device Finalization failed");
+        }
+    if (item) {
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+    }
+}
+
 void MVSCamera::on_Preview_clicked()
 {
-    if(!isInitial)
-    {
-        if(!Initialize())
-        {
-            qDebug()<<"Init fail!";
-        }
-        isInitial = true;
-    }
-
-    if(!deviceChooseState)
-    {
-        if(isPausing)
-        {
-            ui->Preview->setChecked(true);
-        }else{
-            ui->Preview->setChecked(false);
-        }
+    if(!handle){
+        ui->Preview->setChecked(false);
         QMessageBox::warning(this, "warning", "No device");
         return;
     }
-
     if(!isPreviewing)
     {
         //#1 开始取流
@@ -293,54 +345,6 @@ void MVSCamera::on_Preview_clicked()
         isPreviewing=false;
         isPausing=true;
     }
-}
-
-void MVSCamera::on_Stop_clicked()
-{
-    if(handle==nullptr)
-    {
-        QMessageBox::warning(this, "warning", "No device");
-        return;
-    }
-
-    //#1 停止取流
-    if(isInitial&&isPreviewing)
-    {
-        nRet = MV_CC_StopGrabbing(handle);
-        if (MV_OK != nRet)
-        {
-            qDebug()<<"Stop Grabbing fail!";
-            return;
-        }
-    }
-    //#2 关闭设备
-    nRet = MV_CC_CloseDevice(handle);
-    if (MV_OK != nRet)
-    {
-        qDebug()<<"Close Device fail!";
-        return;
-    }
-    //#3 销毁句柄
-    nRet = MV_CC_DestroyHandle(handle);
-    if (MV_OK != nRet)
-    {
-        qDebug()<<"Destroy Handle fail!";
-        return;
-    }
-    //#4 反初始化
-    nRet = MV_CC_Finalize();
-    if (MV_OK != nRet)
-    {
-        qDebug()<<"Finalize fail!";
-        return;
-    }
-    handle = NULL;
-    isInitial=false;
-    isPreviewing=false;
-    isPausing=false;
-    ui->Preview->setChecked(false);
-    //ui->Preview->setText(u8"预览");
-    ui->Camera->clear();
 }
 
 void MVSCamera::on_Capture_clicked()
